@@ -1,14 +1,24 @@
 package com.ztz.asciidetector.structure;
 
-import java.util.List;
+import java.util.Collection;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 
 public class DetectorSettings {
 
-	// add tab and others...
-	private List<Character> possibleDelimiter = ImmutableList.of(';', ',');
+	private final int                           maxNumberOfRowsToAnalyze = 500;
+	private       Multimap<CharType, Character> specialCharacters        = MultimapBuilder.enumKeys(CharType.class).arrayListValues().build();
 
+	public Collection<Character> getPossibleDelimiter() {
+		return specialCharacters.get(CharType.DELIMITER);
+	}
 
+	public Collection<Character> getPossibleThousendsSeparators() {
+		return specialCharacters.get(CharType.DECIMAL_SEPARATOR);
+	}
 
+	public int getMaxNumberOfRowsToAnalyze() {
+		return maxNumberOfRowsToAnalyze;
+	}
 }
