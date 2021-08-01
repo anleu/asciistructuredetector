@@ -7,8 +7,13 @@ import com.google.common.collect.MultimapBuilder;
 
 public class DetectorSettings {
 
-	private final int                           maxNumberOfRowsToAnalyze = 500;
-	private       Multimap<CharType, Character> specialCharacters        = MultimapBuilder.enumKeys(CharType.class).arrayListValues().build();
+	private final int                           maxNumberOfRowsToAnalyze;
+	private final Multimap<CharType, Character> specialCharacters;
+
+	public DetectorSettings(int maxNumberOfRowsToAnalyze, Multimap<CharType, Character> specialCharacters ) {
+		this.maxNumberOfRowsToAnalyze = maxNumberOfRowsToAnalyze;
+		this.specialCharacters = specialCharacters;
+	}
 
 	public Collection<Character> getPossibleDelimiter() {
 		return specialCharacters.get(CharType.DELIMITER);
@@ -21,4 +26,6 @@ public class DetectorSettings {
 	public int getMaxNumberOfRowsToAnalyze() {
 		return maxNumberOfRowsToAnalyze;
 	}
+
+
 }

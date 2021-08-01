@@ -37,11 +37,7 @@ public class RowDescriptionCreator {
 		int len = chars.length;
 		for (int i = 0; i < Math.min(len, detectorSettings.getMaxNumberOfRowsToAnalyze()); i++) {
 			char nextChar = chars[i];
-			if (nextChar <= ' ') {
-				throw new IllegalStateException("UNKNOWN char " + nextChar);
-			} else {
-				handleRowChar(nextChar, rowDescription);
-			}
+			handleRowChar(nextChar, rowDescription);
 		}
 	}
 

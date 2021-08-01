@@ -21,7 +21,7 @@ public class RowDescription {
 		return rowIndex;
 	}
 
-	public CharTypesCounts getCharCount() {
+	public CharTypesCounts getCharTypeCounts() {
 		return charTypesCounts;
 	}
 }

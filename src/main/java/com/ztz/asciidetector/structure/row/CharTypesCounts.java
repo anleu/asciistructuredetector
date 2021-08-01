@@ -20,4 +20,8 @@ public class CharTypesCounts {
 	void increase(CharType charType, char character) {
 		charTypesCounts.get(charType).getAndIncrement(character);
 	}
+
+	public Map<Character, Long> getCountsFor(CharType charType){
+		return charTypesCounts.get(charType).asMap();
+	}
 }
