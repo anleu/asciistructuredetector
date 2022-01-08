@@ -21,7 +21,7 @@ public class CharTypesCounts {
 		charTypesCounts.get(charType).getAndIncrement(character);
 	}
 
-	public Map<Character, Long> getCountsFor(CharType charType){
+	public Map<Character, Long> getCountsFor(CharType charType) {
 		return charTypesCounts.get(charType).asMap();
 	}
 }

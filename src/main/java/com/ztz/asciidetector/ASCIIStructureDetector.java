@@ -4,20 +4,19 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Range;
 import com.google.common.util.concurrent.AtomicLongMap;
 import com.ztz.asciidetector.structure.CharType;
-import com.ztz.asciidetector.structure.DetectorSettings;
 import com.ztz.asciidetector.structure.row.CharTypesCounts;
-import com.ztz.asciidetector.structure.row.RowDescription;
-import com.ztz.asciidetector.structure.row.RowDescriptionCreator;
+import com.ztz.asciidetector.structure.row.Row;
+import com.ztz.asciidetector.structure.row.RowCalculations;
+import com.ztz.asciidetector.structure.row.RowFeatures;
+import com.ztz.asciidetector.structure.rules.DataRowRules;
 
 public class ASCIIStructureDetector {
 
@@ -32,7 +31,10 @@ public class ASCIIStructureDetector {
 		specialCharacters.put(CharType.DELIMITER, '\t');
 		specialCharacters.put(CharType.DECIMAL_SEPARATOR, ',');
 		specialCharacters.put(CharType.DECIMAL_SEPARATOR, '.');
-		return new ASCIIStructureDetector(new DetectorSettings(500, specialCharacters));
+
+		Set<String> metaDataWords = Collections.EMPTY_SET;
+
+		return new ASCIIStructureDetector(new DetectorSettings(500, specialCharacters, metaDataWords));
 	}
 
 	ASCIIStructureDetector(DetectorSettings detectorSettings) {
@@ -42,18 +44,58 @@ public class ASCIIStructureDetector {
 	public ASCIIStructureDescription detectStructure(File file) {
 
 		ASCIIStructureDescription asciiStructureDescription = new ASCIIStructureDescription();
+		List<Row> rows = buildRows(file);
+		Character delimiter = detectDelimiter(rows);
+		asciiStructureDescription.setDelimiter(delimiter);
+		List<RowFeatures> rowFeaturesList = buildRowFeatureList(rows, delimiter);
 
-		List<RowDescription> rowDescriptions = buildRowDescriptions(file);
-		asciiStructureDescription.setDelimiter(detectDelimiter(rowDescriptions));
+		int dataRowsThreshold = (int) (detectorSettings.getDataRangeThreshold() * rows.size());
+		int numOfDataRows = 0;
+
+		for (int rowIndex = 0; rowIndex < rowFeaturesList.size(); rowIndex++) {
+			RowFeatures rowFeatures = rowFeaturesList.get(rowIndex);
+
+			// ToDo handle meta and header rows
+
+			boolean isDataRow = isDataRow(rowFeatures);
+			if (isDataRow) {
+				numOfDataRows++;
+				if (numOfDataRows > dataRowsThreshold) {
+					asciiStructureDescription.setDataSection(Range.closed(rowIndex - numOfDataRows, rows.size()));
+					break;
+				}
+			} else {
+				numOfDataRows = 0;
+			}
+		}
 
 		return asciiStructureDescription;
 	}
 
-	private Character detectDelimiter(List<RowDescription> rowDescriptions) {
+	private boolean isDataRow(RowFeatures rowFeatures) {
+		float match = DataRowRules.match(rowFeatures);
+		return match > 0.85f;
+	}
+
+	private List<RowFeatures> buildRowFeatureList(List<Row> rows, char delimiter) {
+		List<RowFeatures> rowFeaturesList = new ArrayList<>();
+		for (Row row : rows) {
+			RowFeatures rowFeatures = new RowFeatures();
+			rowFeatures.setNumericalCellRatio(RowCalculations.calcNumericRowRatio(row));
+			rowFeatures.setStringCellRatio(RowCalculations.calcStringRowRatio(row));
+			rowFeatures.setContainsMetaDataWord(RowCalculations.containsMetaDataWord(row.getRowString(), detectorSettings.getMetaDataWords(), delimiter));
+			rowFeatures.setEmptyLine(row.getRowString().isEmpty());
+			rowFeatures.setNumberOfCells(RowCalculations.getNumberOfCells(row.getRowString(), delimiter));
+			rowFeaturesList.add(rowFeatures);
+		}
+		return rowFeaturesList;
+	}
+
+	private Character detectDelimiter(List<Row> rows) {
 		// First solution: the most counted delimiter is the correct one
 		AtomicLongMap<Character> delimiterCounts = AtomicLongMap.create();
-		for (RowDescription rowDescription : rowDescriptions) {
-			CharTypesCounts charTypeCounts = rowDescription.getCharTypeCounts();
+		for (Row row : rows) {
+			CharTypesCounts charTypeCounts = row.getCharTypeCounts();
 			Map<Character, Long> countsFor = charTypeCounts.getCountsFor(CharType.DELIMITER);
 			for (Entry<Character, Long> characterCount : countsFor.entrySet()) {
 				delimiterCounts.getAndAdd(characterCount.getKey(), characterCount.getValue());
@@ -64,19 +106,23 @@ public class ASCIIStructureDetector {
 		return sorted.get(0).getKey();
 	}
 
-	private List<RowDescription> buildRowDescriptions(File file) {
-		List<RowDescription> rowDescriptions = new ArrayList<>();
-		RowDescriptionCreator rowDescriptionCreator = new RowDescriptionCreator(detectorSettings);
+	private List<Row> buildRows(File file) {
+		List<Row> rows = new ArrayList<>();
 		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
 			int rowIndex = 0;
 			String line;
 			while (rowIndex < detectorSettings.getMaxNumberOfRowsToAnalyze() && (line = br.readLine()) != null) {
-				rowDescriptions.add(rowDescriptionCreator.create(rowIndex, line));
+				Row row = new Row(detectorSettings, rowIndex, line);
+				rows.add(row);
 				rowIndex++;
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			e.printStackTrace();
+		} catch (NoSuchFieldException e) {
+			e.printStackTrace();
 		}
-		return rowDescriptions;
+		return rows;
 	}
 }
